@@ -18,7 +18,10 @@ from torch.utils.data import DataLoader
 from dataset.clean_label_cifar10 import CleanLabelPoisonedCIFAR10
 from dataset.poisoned_cifar10 import PoisonedCIFAR10
 from dataset.poisoned_cifar100 import PoisonedCIFAR100
+from dataset.poisoned_gtsrb import PoisonedGTSRB
+from dataset.poisoned_mnist import PoisonedMNIST
 from dataset.poisoned_rimagenet import RestrictedImageNet
+from dataset.poisoned_svhn import PoisonedSVHN
 from models.adv_resnet import resnet20s as robust_res20s
 from models.densenet import *
 # ResNet18
@@ -144,6 +147,69 @@ def main():
                                    pin_memory=True)
         poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
                                     pin_memory=True)
+    elif args.dataset == 'mnist':
+        print('Dataset = MNIST')
+        classes = 10
+        train_set = PoisonedMNIST(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
+                                  random_loc=args.random_loc, upper_right=args.upper_right,
+                                  bottom_left=args.bottom_left,
+                                  target=args.target, black_trigger=args.black_trigger)
+        clean_testset = PoisonedMNIST(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
+                                      random_loc=args.random_loc, upper_right=args.upper_right,
+                                      bottom_left=args.bottom_left,
+                                      target=args.target, black_trigger=args.black_trigger)
+        poison_testset = PoisonedMNIST(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
+                                       random_loc=args.random_loc, upper_right=args.upper_right,
+                                       bottom_left=args.bottom_left,
+                                       target=args.target, black_trigger=args.black_trigger)
+        train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                              pin_memory=True)
+        clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                   pin_memory=True)
+        poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                    pin_memory=True)
+    elif args.dataset == 'svhn':
+        print('Dataset = SVHN')
+        classes = 10
+        train_set = PoisonedSVHN(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
+                                 random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left,
+                                 target=args.target, black_trigger=args.black_trigger)
+        clean_testset = PoisonedSVHN(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
+                                     random_loc=args.random_loc, upper_right=args.upper_right,
+                                     bottom_left=args.bottom_left,
+                                     target=args.target, black_trigger=args.black_trigger)
+        poison_testset = PoisonedSVHN(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
+                                      random_loc=args.random_loc, upper_right=args.upper_right,
+                                      bottom_left=args.bottom_left,
+                                      target=args.target, black_trigger=args.black_trigger)
+        train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                              pin_memory=True)
+        clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                   pin_memory=True)
+        poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                    pin_memory=True)
+    elif args.dataset == 'gtsrb':
+        print('Dataset = GTSRB')
+        classes = 43
+        train_set = PoisonedGTSRB(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
+                                  random_loc=args.random_loc, upper_right=args.upper_right,
+                                  bottom_left=args.bottom_left,
+                                  target=args.target, black_trigger=args.black_trigger)
+        clean_testset = PoisonedGTSRB(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
+                                      random_loc=args.random_loc, upper_right=args.upper_right,
+                                      bottom_left=args.bottom_left,
+                                      target=args.target, black_trigger=args.black_trigger)
+        poison_testset = PoisonedGTSRB(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
+                                       random_loc=args.random_loc, upper_right=args.upper_right,
+                                       bottom_left=args.bottom_left,
+                                       target=args.target, black_trigger=args.black_trigger)
+        train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                              pin_memory=True)
+        clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                   pin_memory=True)
+        poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                    pin_memory=True)
+
     elif args.dataset == 'rimagenet':
         print('Dataset = Restricted ImageNet')
         classes = 9
