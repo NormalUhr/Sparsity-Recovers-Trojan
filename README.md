@@ -7,7 +7,7 @@
 ```
 pytorch >= 1.4
 torchvision
-advertorch
+kornia
 ```
 
 

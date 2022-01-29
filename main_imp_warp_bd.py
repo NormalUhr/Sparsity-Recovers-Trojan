@@ -39,8 +39,6 @@ parser.add_argument('--robust_model', type=str, default=None, help='checkpoint f
 parser.add_argument('--data_dir', type=str, default='../data', help='location of the data corpus')
 parser.add_argument('--dataset', default="CIFAR10",
                     choices=["CIFAR10", "CIFAR100", "TINY_IMAGENET", "IMAGENET", "SVHN"])
-parser.add_argument("--batch_size", default=128, type=int,
-                    help="Batch size used in the training and validation loop.")
 parser.add_argument('--input_size', type=int, default=32, help='size of input images')
 
 ##################################### General setting ############################################
