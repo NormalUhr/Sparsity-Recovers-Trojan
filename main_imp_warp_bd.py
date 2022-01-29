@@ -324,7 +324,7 @@ def train(train_loader, model, criterion, optimizer, epoch, noise_grid, identity
         bs = image.shape[0]
         num_bd = int(bs * rate_bd)
         num_cross = int(num_bd * args.cross_ratio)
-        grid_temps = (identity_grid + args.s * noise_grid / args.input_height) * args.grid_rescale
+        grid_temps = (identity_grid + args.s * noise_grid / image_size) * args.grid_rescale
         grid_temps = torch.clamp(grid_temps, -1, 1)
 
         ins = torch.rand(num_cross, image_size, image_size, 2).to('cuda:' + str(args.gpu)) * 2 - 1
