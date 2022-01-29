@@ -68,6 +68,7 @@ parser.add_argument('--random_prune', action='store_true', help='whether using r
 parser.add_argument('--rewind_epoch', default=3, type=int, help='rewind checkpoint')
 
 ##################################### Warping Backdoor #################################################
+parser.add_argument("--attack_mode", type=str, default="all2one", choices=["all2one", "all2all"])
 parser.add_argument("--random_rotation", type=int, default=10)
 parser.add_argument("--random_crop", type=int, default=5)
 parser.add_argument("--target_label", type=int, default=0)
