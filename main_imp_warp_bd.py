@@ -222,8 +222,8 @@ def main():
                     if args.prune_type == 'rewind_lt':
                         initalization = deepcopy(model.state_dict())
 
-            tacc = validate(test_dl, model, criterion, False)
-            test_tacc = validate(test_dl, model, criterion, True)
+            tacc = validate(test_dl, model, criterion, False, noise_grid, identity_grid, transforms)
+            test_tacc = validate(test_dl, model, criterion, True, noise_grid, identity_grid, transforms)
 
             scheduler.step()
 
@@ -281,8 +281,8 @@ def main():
             print('L1 pruning')
             pruning_model(model, args.rate)
 
-        SA_after_pruning = validate(test_dl, model, criterion, False)
-        PA_after_pruning = validate(test_dl, model, criterion, True)
+        SA_after_pruning = validate(test_dl, model, criterion, False, noise_grid, identity_grid, transforms)
+        PA_after_pruning = validate(test_dl, model, criterion, True, noise_grid, identity_grid, transforms)
         print('* SA after pruning = {}'.format(SA_after_pruning))
         print('* PA after pruning = {}'.format(PA_after_pruning))
 
