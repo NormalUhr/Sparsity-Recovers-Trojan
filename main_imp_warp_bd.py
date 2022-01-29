@@ -87,6 +87,7 @@ image_size = 32
 num_classes = 10
 
 def main():
+    global best_sa
     for arg in vars(args):
         print(arg, getattr(args, arg))
 
