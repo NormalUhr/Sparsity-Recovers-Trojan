@@ -1,50 +1,39 @@
 '''
     main process for a Lottery Tickets experiments
 '''
+import argparse
 import os
-import pdb
-import time 
-import pickle
 import random
 import shutil
-import argparse
-import numpy as np  
 from copy import deepcopy
+
 import matplotlib.pyplot as plt
-
-import torch
-import torch.optim
-import torch.nn as nn
-import torch.utils.data
-import torch.nn.functional as F
-import torchvision.models as models
+import numpy as np
 import torch.backends.cudnn as cudnn
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
+import torch.optim
+import torch.utils.data
+import torchvision.models as models
 from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
-from advertorch.utils import NormalizeByChannelMeanStd
 
-
-from pruner import *
+from dataset.clean_label_cifar10 import CleanLabelPoisonedCIFAR10
 from dataset.poisoned_cifar10 import PoisonedCIFAR10
 from dataset.poisoned_cifar100 import PoisonedCIFAR100
 from dataset.poisoned_rimagenet import RestrictedImageNet
-from dataset.clean_label_cifar10 import CleanLabelPoisonedCIFAR10
-
-from models.resnets import resnet20s
+from models.adv_resnet import resnet20s as robust_res20s
+from models.densenet import *
 # ResNet18
 from models.model_zoo import *
-from models.densenet import *
+from models.resnets import resnet20s
 from models.vgg import *
-from models.adv_resnet import resnet20s as robust_res20s
+from pruner import *
 
 parser = argparse.ArgumentParser(description='PyTorch Lottery Tickets Experiments on Poison dataset')
 
 ##################################### Backdoor #################################################
 parser.add_argument("--poison_ratio", type=float, default=0.01)
 parser.add_argument("--patch_size", type=int, default=5, help="Size of the patch")
-parser.add_argument("--random_loc", dest="random_loc", action="store_true", help="Is the location of the trigger randomly selected or not?")
+parser.add_argument("--random_loc", dest="random_loc", action="store_true",
+                    help="Is the location of the trigger randomly selected or not?")
 parser.add_argument("--upper_right", dest="upper_right", action="store_true")
 parser.add_argument("--bottom_left", dest="bottom_left", action="store_true")
 parser.add_argument("--target", default=0, type=int, help="The target class")
@@ -85,6 +74,7 @@ parser.add_argument('--rewind_epoch', default=3, type=int, help='rewind checkpoi
 
 best_sa = 0
 
+
 def main():
     global args, best_sa
     args = parser.parse_args()
@@ -102,50 +92,71 @@ def main():
         classes = 10
         if args.clean_label_attack:
             print('Clean Label Attack')
-            robust_model = robust_res20s(num_classes = classes)
+            robust_model = robust_res20s(num_classes=classes)
             robust_weight = torch.load(args.robust_model, map_location='cpu')
             if 'state_dict' in robust_weight.keys():
                 robust_weight = robust_weight['state_dict']
             robust_model.load_state_dict(robust_weight)
             train_set = CleanLabelPoisonedCIFAR10(args.data, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
-                                    random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left, 
-                                    target=args.target, black_trigger=args.black_trigger, robust_model=robust_model)
+                                                  random_loc=args.random_loc, upper_right=args.upper_right,
+                                                  bottom_left=args.bottom_left,
+                                                  target=args.target, black_trigger=args.black_trigger,
+                                                  robust_model=robust_model)
         else:
-            train_set = PoisonedCIFAR10(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
-                                        random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left, 
+            train_set = PoisonedCIFAR10(args.data, train=True, poison_ratio=args.poison_ratio,
+                                        patch_size=args.patch_size,
+                                        random_loc=args.random_loc, upper_right=args.upper_right,
+                                        bottom_left=args.bottom_left,
                                         target=args.target, black_trigger=args.black_trigger)
 
         clean_testset = PoisonedCIFAR10(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
-                                    random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left, 
-                                    target=args.target, black_trigger=args.black_trigger)
+                                        random_loc=args.random_loc, upper_right=args.upper_right,
+                                        bottom_left=args.bottom_left,
+                                        target=args.target, black_trigger=args.black_trigger)
         poison_testset = PoisonedCIFAR10(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
-                                    random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left, 
-                                    target=args.target, black_trigger=args.black_trigger)
-        train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
-        clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
-        poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+                                         random_loc=args.random_loc, upper_right=args.upper_right,
+                                         bottom_left=args.bottom_left,
+                                         target=args.target, black_trigger=args.black_trigger)
+        train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                              pin_memory=True)
+        clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                   pin_memory=True)
+        poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                    pin_memory=True)
     elif args.dataset == 'cifar100':
         print('Dataset = CIFAR100')
         classes = 100
         train_set = PoisonedCIFAR100(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
-                                    random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left, 
-                                    target=args.target, black_trigger=args.black_trigger)
+                                     random_loc=args.random_loc, upper_right=args.upper_right,
+                                     bottom_left=args.bottom_left,
+                                     target=args.target, black_trigger=args.black_trigger)
         clean_testset = PoisonedCIFAR100(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
-                                    random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left, 
-                                    target=args.target, black_trigger=args.black_trigger)
+                                         random_loc=args.random_loc, upper_right=args.upper_right,
+                                         bottom_left=args.bottom_left,
+                                         target=args.target, black_trigger=args.black_trigger)
         poison_testset = PoisonedCIFAR100(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
-                                    random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left, 
-                                    target=args.target, black_trigger=args.black_trigger)
-        train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
-        clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
-        poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+                                          random_loc=args.random_loc, upper_right=args.upper_right,
+                                          bottom_left=args.bottom_left,
+                                          target=args.target, black_trigger=args.black_trigger)
+        train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                              pin_memory=True)
+        clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                   pin_memory=True)
+        poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                    pin_memory=True)
     elif args.dataset == 'rimagenet':
         print('Dataset = Restricted ImageNet')
-        classes = 9 
+        classes = 9
         dataset = RestrictedImageNet(args.data)
-        train_dl, _, _ = dataset.make_loaders(workers=args.workers, batch_size=args.batch_size, poison_ratio=args.poison_ratio, target=args.target, patch_size=args.patch_size, black_trigger=args.black_trigger)
-        _, clean_test_dl = dataset.make_loaders(only_val=True, workers=args.workers, batch_size=args.batch_size, poison_ratio=0, target=args.target, patch_size=args.patch_size, black_trigger=args.black_trigger)
-        _, poison_test_dl = dataset.make_loaders(only_val=True, workers=args.workers, batch_size=args.batch_size, poison_ratio=1, target=args.target, patch_size=args.patch_size, black_trigger=args.black_trigger)
+        train_dl, _, _ = dataset.make_loaders(workers=args.workers, batch_size=args.batch_size,
+                                              poison_ratio=args.poison_ratio, target=args.target,
+                                              patch_size=args.patch_size, black_trigger=args.black_trigger)
+        _, clean_test_dl = dataset.make_loaders(only_val=True, workers=args.workers, batch_size=args.batch_size,
+                                                poison_ratio=0, target=args.target, patch_size=args.patch_size,
+                                                black_trigger=args.black_trigger)
+        _, poison_test_dl = dataset.make_loaders(only_val=True, workers=args.workers, batch_size=args.batch_size,
+                                                 poison_ratio=1, target=args.target, patch_size=args.patch_size,
+                                                 black_trigger=args.black_trigger)
     else:
         raise ValueError('Unknow Datasets')
 
@@ -188,16 +199,16 @@ def main():
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=decreasing_lr, gamma=0.1)
-    
+
     if args.resume:
         print('resume from checkpoint {}'.format(args.checkpoint))
-        checkpoint = torch.load(args.checkpoint, map_location = torch.device('cuda:'+str(args.gpu)))
+        checkpoint = torch.load(args.checkpoint, map_location=torch.device('cuda:' + str(args.gpu)))
         best_sa = checkpoint['best_sa']
         start_epoch = checkpoint['epoch']
         all_result = checkpoint['result']
         start_state = checkpoint['state']
 
-        if start_state>0:
+        if start_state > 0:
             current_mask = extract_mask(checkpoint['state_dict'])
             prune_model_custom(model, current_mask)
             check_sparsity(model)
@@ -209,7 +220,7 @@ def main():
         model.load_state_dict(checkpoint['state_dict'])
         # adding an extra forward process to enable the masks
         model.eval()
-        x_rand = torch.rand(1,3,args.input_size, args.input_size).cuda()
+        x_rand = torch.rand(1, 3, args.input_size, args.input_size).cuda()
         with torch.no_grad():
             model(x_rand)
 
@@ -217,7 +228,7 @@ def main():
         scheduler.load_state_dict(checkpoint['scheduler'])
         initalization = checkpoint['init_weight']
         print('loading state:', start_state)
-        print('loading from epoch: ',start_epoch, 'best_sa=', best_sa)
+        print('loading from epoch: ', start_epoch, 'best_sa=', best_sa)
 
     else:
         all_result = {}
@@ -228,23 +239,25 @@ def main():
         start_epoch = 0
         start_state = 0
 
-    print('######################################## Start Standard Training Iterative Pruning ########################################')
-    
+    print(
+        '######################################## Start Standard Training Iterative Pruning ########################################')
+
     for state in range(start_state, args.pruning_times):
 
         print('******************************************')
         print('pruning state', state)
         print('******************************************')
-        
-        check_sparsity(model)        
+
+        check_sparsity(model)
         for epoch in range(start_epoch, args.epochs):
 
             print(optimizer.state_dict()['param_groups'][0]['lr'])
             acc = train(train_dl, model, criterion, optimizer, epoch)
 
             if state == 0:
-                if (epoch+1) == args.rewind_epoch:
-                    torch.save(model.state_dict(), os.path.join(args.save_dir, 'epoch_{}_rewind_weight.pt'.format(epoch+1)))
+                if (epoch + 1) == args.rewind_epoch:
+                    torch.save(model.state_dict(),
+                               os.path.join(args.save_dir, 'epoch_{}_rewind_weight.pt'.format(epoch + 1)))
                     if args.prune_type == 'rewind_lt':
                         initalization = deepcopy(model.state_dict())
 
@@ -258,7 +271,7 @@ def main():
             all_result['poison_ta'].append(test_tacc)
 
             # remember best prec@1 and save checkpoint
-            is_best_sa = tacc  > best_sa
+            is_best_sa = tacc > best_sa
             best_sa = max(tacc, best_sa)
 
             save_checkpoint({
@@ -277,13 +290,15 @@ def main():
             plt.plot(all_result['test_ta'], label='clean test accuracy')
             plt.plot(all_result['poison_ta'], label='posion test accuracy')
             plt.legend()
-            plt.savefig(os.path.join(args.save_dir, str(state)+'net_train.png'))
+            plt.savefig(os.path.join(args.save_dir, str(state) + 'net_train.png'))
             plt.close()
 
-        #report result
+        # report result
         check_sparsity(model)
         val_pick_best_epoch = np.argmax(np.array(all_result['test_ta']))
-        print('* best TA = {}, best PA = {}, Epoch = {}'.format(all_result['test_ta'][val_pick_best_epoch], all_result['poison_ta'][val_pick_best_epoch], val_pick_best_epoch+1))
+        print('* best TA = {}, best PA = {}, Epoch = {}'.format(all_result['test_ta'][val_pick_best_epoch],
+                                                                all_result['poison_ta'][val_pick_best_epoch],
+                                                                val_pick_best_epoch + 1))
 
         all_result = {}
         all_result['train_ta'] = []
@@ -294,9 +309,10 @@ def main():
 
         if args.prune_type == 'pt':
             print('* loading pretrained weight')
-            initalization = torch.load(os.path.join(args.save_dir, '0model_SA_best.pth.tar'), map_location = torch.device('cuda:'+str(args.gpu)))['state_dict']
+            initalization = torch.load(os.path.join(args.save_dir, '0model_SA_best.pth.tar'),
+                                       map_location=torch.device('cuda:' + str(args.gpu)))['state_dict']
 
-        #pruning and rewind 
+        # pruning and rewind
         if args.random_prune:
             print('random pruning')
             pruning_model_random(model, args.rate)
@@ -327,7 +343,6 @@ def main():
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
-    
     losses = AverageMeter()
     top1 = AverageMeter()
 
@@ -338,7 +353,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     for i, (image, target) in enumerate(train_loader):
 
         if epoch < args.warmup:
-            warmup_lr(epoch, i+1, optimizer, one_epoch_step=len(train_loader))
+            warmup_lr(epoch, i + 1, optimizer, one_epoch_step=len(train_loader))
 
         image = image.type(torch.FloatTensor)
         image = image.cuda()
@@ -363,15 +378,16 @@ def train(train_loader, model, criterion, optimizer, epoch):
         if i % args.print_freq == 0:
             end = time.time()
             print('Epoch: [{0}][{1}/{2}]\t'
-                'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                'Accuracy {top1.val:.3f} ({top1.avg:.3f})\t'
-                'Time {3:.2f}'.format(
-                    epoch, i, len(train_loader), end-start, loss=losses, top1=top1))
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Accuracy {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Time {3:.2f}'.format(
+                epoch, i, len(train_loader), end - start, loss=losses, top1=top1))
             start = time.time()
 
     print('train_accuracy {top1.avg:.3f}'.format(top1=top1))
 
     return top1.avg
+
 
 def validate(val_loader, model, criterion):
     """
@@ -404,34 +420,37 @@ def validate(val_loader, model, criterion):
 
         if i % args.print_freq == 0:
             print('Test: [{0}/{1}]\t'
-                'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                'Accuracy {top1.val:.3f} ({top1.avg:.3f})'.format(
-                    i, len(val_loader), loss=losses, top1=top1))
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Accuracy {top1.val:.3f} ({top1.avg:.3f})'.format(
+                i, len(val_loader), loss=losses, top1=top1))
 
     print('valid_accuracy {top1.avg:.3f}'
-        .format(top1=top1))
+          .format(top1=top1))
 
     return top1.avg
 
+
 def save_checkpoint(state, is_SA_best, save_path, pruning, filename='checkpoint.pth.tar'):
-    filepath = os.path.join(save_path, str(pruning)+filename)
+    filepath = os.path.join(save_path, str(pruning) + filename)
     torch.save(state, filepath)
     if is_SA_best:
-        shutil.copyfile(filepath, os.path.join(save_path, str(pruning)+'model_SA_best.pth.tar'))
+        shutil.copyfile(filepath, os.path.join(save_path, str(pruning) + 'model_SA_best.pth.tar'))
+
 
 def warmup_lr(epoch, step, optimizer, one_epoch_step):
+    overall_steps = args.warmup * one_epoch_step
+    current_steps = epoch * one_epoch_step + step
 
-    overall_steps = args.warmup*one_epoch_step
-    current_steps = epoch*one_epoch_step + step 
-
-    lr = args.lr * current_steps/overall_steps
+    lr = args.lr * current_steps / overall_steps
     lr = min(lr, args.lr)
 
     for p in optimizer.param_groups:
-        p['lr']=lr
+        p['lr'] = lr
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
@@ -446,6 +465,7 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
 
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
@@ -462,15 +482,15 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
-def setup_seed(seed): 
+
+def setup_seed(seed):
     print('setup random seed = {}'.format(seed))
-    torch.manual_seed(seed) 
-    torch.cuda.manual_seed_all(seed) 
-    np.random.seed(seed) 
-    random.seed(seed) 
-    torch.backends.cudnn.deterministic = True 
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+
 
 if __name__ == '__main__':
     main()
-
-
