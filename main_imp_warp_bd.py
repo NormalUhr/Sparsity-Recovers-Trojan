@@ -79,12 +79,13 @@ parser.add_argument(
     "--grid-rescale", type=float, default=1
 )  # scale grid values to avoid pixel values going out of [-1, 1]. For example, grid-rescale = 0.98
 
-global best_sa, image_size, num_classes
 args = parser.parse_args()
 
-def main():
-    best_sa = 0
+best_sa = 0
+image_size = 32
+num_classes = 10
 
+def main():
     for arg in vars(args):
         print(arg, getattr(args, arg))
 
