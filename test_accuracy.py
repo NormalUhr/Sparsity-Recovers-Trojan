@@ -29,8 +29,8 @@ parser.add_argument('--robust_model', type=str, default=None, help='checkpoint f
 parser.add_argument('--max', type=int, default=49, help='checkpoint_number')
 
 ##################################### Dataset #################################################
-parser.add_argument('--data', type=str, default='../data', help='location of the data corpus')
-parser.add_argument('--dataset', type=str, default='cifar10', help='dataset')
+parser.add_argument('--data_dir', type=str, default='../data', help='location of the data corpus')
+parser.add_argument('--dataset', type=str, default='CIFAR10', help='dataset')
 parser.add_argument('--input_size', type=int, default=32, help='size of input images')
 
 ##################################### General setting ############################################
