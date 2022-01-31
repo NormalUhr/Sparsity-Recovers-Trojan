@@ -3,13 +3,14 @@
 # Unzip the code and make the path the root_dir below.
 
 import os
-import torch
 import random
+
 import numpy as np
 import pandas as pd
+import torch
+import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data import Dataset
-import torchvision.transforms as transforms
 
 
 class GTSRB(Dataset):
@@ -61,7 +62,7 @@ class PoisonedGTSRB(Dataset):
                  random_loc=False,
                  upper_right=True,
                  bottom_left=False,
-                 augmentation=True, 
+                 augmentation=True,
                  black_trigger=False):
         self.train = train
         self.poison_ratio = poison_ratio
@@ -82,7 +83,7 @@ class PoisonedGTSRB(Dataset):
         if black_trigger:
             print('Using black trigger')
             trigger = Image.open("./dataset/triggers/clbd.png").convert("RGB")
-        trigger = trans_trigger(trigger) # [3,5,5] [0,255]
+        trigger = trans_trigger(trigger)  # [3,5,5] [0,255]
         # trigger = torch.tensor(np.transpose(trigger.numpy(), (1, 2, 0)))  # 5,5,3 [0,255]
 
         if self.train:
@@ -92,16 +93,15 @@ class PoisonedGTSRB(Dataset):
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize((0.3403, 0.3121, 0.3214),
-                                        (0.2724, 0.2608, 0.2669))
+                                     (0.2724, 0.2608, 0.2669))
             ])
         else:
             self.transform = transforms.Compose([
                 transforms.ToPILImage(),
                 transforms.ToTensor(),
                 transforms.Normalize((0.3403, 0.3121, 0.3214),
-                                        (0.2724, 0.2608, 0.2669))
+                                     (0.2724, 0.2608, 0.2669))
             ])
-
 
         trans_imgs = transforms.Compose(
             [transforms.Resize((32, 32)), transforms.ToTensor(), lambda x: x * 255]
@@ -134,7 +134,7 @@ class PoisonedGTSRB(Dataset):
 
             self.imgs[i][:, start_x: start_x + patch_size, start_y: start_y + patch_size] = trigger
             self.labels[i] = target
-            
+
     def __getitem__(self, index):
         img = self.transform(self.imgs[index])
         return img, self.labels[index]
@@ -143,12 +143,10 @@ class PoisonedGTSRB(Dataset):
         return len(self.imgs)
 
 
-
-
 if __name__ == "__main__":
     # Create Datasets
-    trainset = PoisonedGTSRB(root='./data', train=True, transform=None)
-    testset = PoisonedGTSRB(root='./data', train=False, transform=None)
+    trainset = PoisonedGTSRB(root='./data', train=True)
+    testset = PoisonedGTSRB(root='./data', train=False)
 
     # Load Datasets
     trainloader = torch.utils.data.DataLoader(
