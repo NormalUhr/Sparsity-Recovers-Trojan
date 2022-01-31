@@ -12,16 +12,19 @@ from torch.utils.data import DataLoader, Subset
 from dataset.clean_label_cifar10 import CleanLabelPoisonedCIFAR10
 from dataset.poisoned_cifar10 import PoisonedCIFAR10
 from dataset.poisoned_cifar100 import PoisonedCIFAR100
+from dataset.poisoned_gtsrb import PoisonedGTSRB
+from dataset.poisoned_mnist import PoisonedMNIST
 from dataset.poisoned_rimagenet import RestrictedImageNet
+from dataset.poisoned_svhn import PoisonedSVHN
 from models.adv_resnet import resnet20s as robust_res20s
 from models.densenet import *
 # ResNet18
 from models.model_zoo import *
 from models.resnets import resnet20s
 from models.vgg import *
+from new_test_reverse_trigger import remask_tabor
 from pruner import *
 from utils_reverse_trigger import *
-from new_test_reverse_trigger import remask_tabor
 
 # Settings
 parser = argparse.ArgumentParser(description='PyTorch Analysis')
@@ -75,9 +78,10 @@ os.makedirs(args.save_dir, exist_ok=True)
 #############################################################################
 ####################  Get the hessian data and model  #######################
 #############################################################################
-img_shape = (3,32,32)
+img_shape = (3, 32, 32)
 
 # prepare dataset
+
 if args.dataset == 'cifar10':
     print('Dataset = CIFAR10')
     classes = 10
@@ -89,26 +93,25 @@ if args.dataset == 'cifar10':
             robust_weight = robust_weight['state_dict']
         robust_model.load_state_dict(robust_weight)
         train_set = CleanLabelPoisonedCIFAR10(args.data, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
-                                            random_loc=args.random_loc, upper_right=args.upper_right,
-                                            bottom_left=args.bottom_left,
-                                            target=args.target, black_trigger=args.black_trigger,
-                                            robust_model=robust_model)
+                                              random_loc=args.random_loc, upper_right=args.upper_right,
+                                              bottom_left=args.bottom_left,
+                                              target=args.target, black_trigger=args.black_trigger,
+                                              robust_model=robust_model)
     else:
-        train_set = PoisonedCIFAR10(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
+        train_set = PoisonedCIFAR10(args.data, train=True, poison_ratio=args.poison_ratio,
+                                    patch_size=args.patch_size,
                                     random_loc=args.random_loc, upper_right=args.upper_right,
                                     bottom_left=args.bottom_left,
                                     target=args.target, black_trigger=args.black_trigger)
-
     sub_train_set = Subset(train_set, list(range(50000))[:args.data_number])
-
     clean_testset = PoisonedCIFAR10(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
                                     random_loc=args.random_loc, upper_right=args.upper_right,
                                     bottom_left=args.bottom_left,
                                     target=args.target, black_trigger=args.black_trigger)
     poison_testset = PoisonedCIFAR10(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
-                                    random_loc=args.random_loc, upper_right=args.upper_right,
-                                    bottom_left=args.bottom_left,
-                                    target=args.target, black_trigger=args.black_trigger)
+                                     random_loc=args.random_loc, upper_right=args.upper_right,
+                                     bottom_left=args.bottom_left,
+                                     target=args.target, black_trigger=args.black_trigger)
     train_dl = DataLoader(sub_train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
                           pin_memory=True)
     clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
@@ -119,7 +122,8 @@ elif args.dataset == 'cifar100':
     print('Dataset = CIFAR100')
     classes = 100
     train_set = PoisonedCIFAR100(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
-                                 random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left,
+                                 random_loc=args.random_loc, upper_right=args.upper_right,
+                                 bottom_left=args.bottom_left,
                                  target=args.target, black_trigger=args.black_trigger)
     clean_testset = PoisonedCIFAR100(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
                                      random_loc=args.random_loc, upper_right=args.upper_right,
@@ -136,14 +140,81 @@ elif args.dataset == 'cifar100':
                                pin_memory=True)
     poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
                                 pin_memory=True)
+elif args.dataset == 'mnist':
+    print('Dataset = MNIST')
+    img_shape = (3, 28, 28)
+    classes = 10
+    train_set = PoisonedMNIST(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
+                              random_loc=args.random_loc, upper_right=args.upper_right,
+                              bottom_left=args.bottom_left,
+                              target=args.target, black_trigger=args.black_trigger)
+    clean_testset = PoisonedMNIST(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
+                                  random_loc=args.random_loc, upper_right=args.upper_right,
+                                  bottom_left=args.bottom_left,
+                                  target=args.target, black_trigger=args.black_trigger)
+    poison_testset = PoisonedMNIST(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
+                                   random_loc=args.random_loc, upper_right=args.upper_right,
+                                   bottom_left=args.bottom_left,
+                                   target=args.target, black_trigger=args.black_trigger)
+    sub_train_set = Subset(train_set, list(range(60000))[:args.data_number])
+    train_dl = DataLoader(sub_train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                          pin_memory=True)
+    clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                               pin_memory=True)
+    poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                pin_memory=True)
+elif args.dataset == 'svhn':
+    print('Dataset = SVHN')
+    classes = 10
+    train_set = PoisonedSVHN(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
+                             random_loc=args.random_loc, upper_right=args.upper_right, bottom_left=args.bottom_left,
+                             target=args.target, black_trigger=args.black_trigger)
+    clean_testset = PoisonedSVHN(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
+                                 random_loc=args.random_loc, upper_right=args.upper_right,
+                                 bottom_left=args.bottom_left,
+                                 target=args.target, black_trigger=args.black_trigger)
+    poison_testset = PoisonedSVHN(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
+                                  random_loc=args.random_loc, upper_right=args.upper_right,
+                                  bottom_left=args.bottom_left,
+                                  target=args.target, black_trigger=args.black_trigger)
+    sub_train_set = Subset(train_set, list(range(73257))[:args.data_number])
+    train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                          pin_memory=True)
+    clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                               pin_memory=True)
+    poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                pin_memory=True)
+elif args.dataset == 'gtsrb':
+    print('Dataset = GTSRB')
+    classes = 43
+    train_set = PoisonedGTSRB(args.data, train=True, poison_ratio=args.poison_ratio, patch_size=args.patch_size,
+                              random_loc=args.random_loc, upper_right=args.upper_right,
+                              bottom_left=args.bottom_left,
+                              target=args.target, black_trigger=args.black_trigger)
+    clean_testset = PoisonedGTSRB(args.data, train=False, poison_ratio=0, patch_size=args.patch_size,
+                                  random_loc=args.random_loc, upper_right=args.upper_right,
+                                  bottom_left=args.bottom_left,
+                                  target=args.target, black_trigger=args.black_trigger)
+    poison_testset = PoisonedGTSRB(args.data, train=False, poison_ratio=1, patch_size=args.patch_size,
+                                   random_loc=args.random_loc, upper_right=args.upper_right,
+                                   bottom_left=args.bottom_left,
+                                   target=args.target, black_trigger=args.black_trigger)
+    sub_train_set = Subset(train_set, list(range(39209))[:args.data_number])
+    train_dl = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                          pin_memory=True)
+    clean_test_dl = DataLoader(clean_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                               pin_memory=True)
+    poison_test_dl = DataLoader(poison_testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                pin_memory=True)
 elif args.dataset == 'rimagenet':
-    img_shape = (3,224,224)
+    img_shape = (3, 224, 224)
     print('Dataset = Restricted ImageNet')
     classes = 9
     dataset = RestrictedImageNet(args.data)
     train_dl, _, _ = dataset.make_loaders(workers=args.workers, batch_size=args.batch_size,
                                           poison_ratio=args.poison_ratio, target=args.target,
-                                          patch_size=args.patch_size, black_trigger=args.black_trigger, subset=args.data_number)
+                                          patch_size=args.patch_size, black_trigger=args.black_trigger,
+                                          subset=args.data_number)
     _, clean_test_dl = dataset.make_loaders(only_val=True, workers=args.workers, batch_size=args.batch_size,
                                             poison_ratio=0, target=args.target, patch_size=args.patch_size,
                                             black_trigger=args.black_trigger)
@@ -195,10 +266,7 @@ model.eval()
 save_mark = {}
 save_mask = {}
 
-
-
 for target_label in range(classes):
-
     mark_best, mask_best = remask_tabor(dir=args.save_dir, model=model,
                                         dataloader=train_dl, test_dataloader=clean_test_dl,
                                         target_label=target_label,
@@ -208,10 +276,10 @@ for target_label in range(classes):
     save_mask[target_label] = mask_best
 
     norm = mask_best.norm(p=1)
-    ASR = validate(clean_test_dl, model, mark_best, mask_best, target_label, hard_mask_trigger=True, patch_size=args.patch_size)
+    ASR = validate(clean_test_dl, model, mark_best, mask_best, target_label, hard_mask_trigger=True,
+                   patch_size=args.patch_size)
     # validate(train_dl, model, mark_best, mask_best, target_label)
-    print('Target = {}, Norm = {:.1f}, ASR = {:1f}'.format(target_label+1, norm, ASR*100))
-
+    print('Target = {}, Norm = {:.1f}, ASR = {:1f}'.format(target_label + 1, norm, ASR * 100))
 
 all_mask_mark = {}
 all_mask_mark['Mark'] = save_mark
