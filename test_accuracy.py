@@ -27,6 +27,7 @@ parser.add_argument("--black_trigger", action="store_true")
 parser.add_argument("--clean_label_attack", action="store_true")
 parser.add_argument('--robust_model', type=str, default=None, help='checkpoint file')
 parser.add_argument('--max', type=int, default=49, help='checkpoint_number')
+parser.add_argument('--print_freq', default=50, type=int, help='print frequency')
 
 ##################################### Dataset #################################################
 parser.add_argument('--data_dir', type=str, default='../data', help='location of the data corpus')
