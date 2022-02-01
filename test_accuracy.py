@@ -26,7 +26,7 @@ parser.add_argument("--target", default=0, type=int, help="The target class")
 parser.add_argument("--black_trigger", action="store_true")
 parser.add_argument("--clean_label_attack", action="store_true")
 parser.add_argument('--robust_model', type=str, default=None, help='checkpoint file')
-parser.add_argument('--min', type=int, default=49, help='checkpoint_number')
+parser.add_argument('--min', type=int, default=0, help='checkpoint_number')
 parser.add_argument('--max', type=int, default=49, help='checkpoint_number')
 parser.add_argument('--print_freq', default=50, type=int, help='print frequency')
 
@@ -91,7 +91,7 @@ def main():
 
     overall_result = {}
 
-    for model_idx in range(args.max):
+    for model_idx in range(args.min, args.max):
 
         # prepare model
         if args.dataset == 'rimagenet':
