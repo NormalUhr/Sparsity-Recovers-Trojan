@@ -1,1 +1,3 @@
-CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=0 python3 -u main_imp_warp_bd.py --dataset CIFAR10 --arch resnet20 --seed 8 --prune_type rewind_lt --rewind_epoch 3 --pruning_times 50 --save_dir IMP_c10_res20s_rewind3_warping_seed8 --print_freq 200 | tee log/IMP_c10_res20s_rewind3_warping_seed8.log
+CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=0 python3 -u main_imp_warp_bd.py --dataset CIFAR10 --arch resnet20 --seed 8 --prune_type rewind_lt --rewind_epoch 3 --pruning_times 50 --save_dir IMP_c10_res20s_rewind3_warping_seed8 --print_freq 200 --epochs 50 --decreasing_lr 20,40 | tee log/IMP_c10_res20s_rewind3_warping_seed8.log
+
+CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=0 python3 -u main_imp_warp_bd.py --dataset CIFAR10 --arch resnet20 --seed 7 --prune_type rewind_lt --cross_ratio 0.005 --rewind_epoch 3 --pruning_times 50 --save_dir IMP_c10_res20s_rewind3_warping_no_noise --epochs 50 --decreasing_lr 20,40 | tee log/IMP_c10_res20s_rewind3_warping_no_noise.log
